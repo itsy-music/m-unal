@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>M-UNAL - Catálogo Principal</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: white; margin: 0; padding: 20px; }
+        .player-container { position: fixed; top: 0; left: 0; width: 100%; background: #181818; padding: 15px; border-bottom: 1px solid #282828; display: flex; align-items: center; justify-content: space-around; z-index: 100; }
+        .now-playing { font-weight: bold; color: #1db954; }
+        audio { width: 400px; }
+        .catalog-container { margin-top: 100px; max-width: 1000px; margin-left: auto; margin-right: auto; }
+        table { width: 100%; border-collapse: collapse; background: #181818; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #282828; }
+        th { background-color: #202020; color: #b3b3b3; text-transform: uppercase; font-size: 12px; }
+        tr:hover { background-color: #2a2a2a; cursor: pointer; }
+        .play-btn { background-color: #1db954; color: white; border: none; padding: 6px 12px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+        .play-btn:hover { background-color: #1ed760; transform: scale(1.05); }
+    </style>
+</head>
+<body>
+
+    <div class="player-container">
+        <div>
+            <span>🎵 Sonando ahora: </span>
+            <span id="current-track" class="now-playing">Ninguna canción seleccionada</span>
+        </div>
+        <audio id="audio-player" controls autoplay></audio>
+    </div>
+
+    <div class="catalog-container">
+        <h2>Tu Catálogo Musical</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Acción</th>
+                    <th>Título</th>
+                    <th>Artista</th>
+                    <th>Álbum</th>
+                    <th>Duración</th>
+                </tr>
+            </thead>
+            <tbody id="catalog-body">
+                </tbody>
+        </table>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        const tbody = document.getElementById("catalog-body");
+        const player = document.getElementById("audio-player");
+        const trackLabel = document.getElementById("current-track");
+
+        // Usamos la IP de tu máquina de desarrollo directamente
+        const API_BASE_URL = "/api";
+
+        try {
+            const respuesta = await fetch(`${API_BASE_URL}/songs`);
+            const canciones = await respuesta.json();
+
+            tbody.innerHTML = "";
+
+            // Inyectamos las filas de forma limpia
+            canciones.forEach(cancion => {
+                const fila = document.createElement("tr");
+                
+                // Mapeamos los datos de las columnas de la vista de Postgres de forma segura
+                const id = cancion["SongID"];
+                const nombre = cancion["Canción"];
+                const artista = cancion["Artista Principal"];
+                const album = cancion["Álbum"];
+                const duracion = cancion["Duración"];
+
+                fila.innerHTML = `
+                    <td>
+                        <button class="play-btn" 
+                                data-id="${id}" 
+                                data-title="${nombre}" 
+                                data-artist="${artista}">
+                            ▶ Escuchar
+                        </button>
+                    </td>
+                    <td><strong>${nombre}</strong></td>
+                    <td>${artista}</td>
+                    <td>${album}</td>
+                    <td>${duracion}</td>
+                `;
+                
+                tbody.appendChild(fila);
+            });
+
+            // Configurar el evento para cuando hagan clic en cualquier botón de reproducción
+            document.querySelectorAll(".play-btn").forEach(boton => {
+                boton.addEventListener("click", (e) => {
+                    const songId = e.currentTarget.getAttribute("data-id");
+                    const title = e.currentTarget.getAttribute("data-title");
+                    const artist = e.currentTarget.getAttribute("data-artist");
+
+                    // Actualizar la interfaz visual
+                    trackLabel.textContent = `${title} - ${artist}`;
+
+                    // Apuntar el reproductor nativo al endpoint de streaming de Flask
+                    player.src = `${API_BASE_URL}/stream/${songId}`;
+                    player.play().catch(err => console.log("Esperando interacción del usuario para reproducir:", err));
+                });
+            });
+
+        } catch (error) {
+            console.error("Error cargando el catálogo:", error);
+            tbody.innerHTML = `tr><td colspan="5" style="color: red; text-align: center;">Error al conectar con el servidor de música.</td></tr>`;
+        }
+    });
+</script>
+</body>
+</html>
